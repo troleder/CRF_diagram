@@ -75,16 +75,22 @@ def render_patient(data):
         unsafe_allow_html=True,
     )
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Ramię", arm)
-    c2.metric("Płeć", p.get("sex") or "—")
-    c3.metric("LVEF", p.get("lvef") or "—")
-    c4.metric("NYHA", p.get("nyha") or "—")
+    def _bool_cell(val):
+        if val is True:  return "TAK"
+        if val is False: return "NIE"
+        return "—"
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Cukrzyca",       "TAK" if p.get("diabetes") is True  else "NIE" if p.get("diabetes") is False else "—")
-    c2.metric("Nadciśnienie",   "TAK" if p.get("hypertension") is True else "NIE" if p.get("hypertension") is False else "—")
-    c3.metric("Poprzednie PCI", "TAK" if p.get("previous_pci") is True else "NIE" if p.get("previous_pci") is False else "—")
+    summary_html = '<div style="line-height:2.4;">'
+    summary_html += _cell("Ramię",         arm)
+    summary_html += _cell("Płeć",          p.get("sex") or "—")
+    summary_html += _cell("LVEF",          p.get("lvef") or "—")
+    summary_html += _cell("NYHA",          p.get("nyha") or "—")
+    summary_html += "<br>"
+    summary_html += _cell("Cukrzyca",      _bool_cell(p.get("diabetes")))
+    summary_html += _cell("Nadciśnienie",  _bool_cell(p.get("hypertension")))
+    summary_html += _cell("Poprzednie PCI", _bool_cell(p.get("previous_pci")))
+    summary_html += "</div>"
+    st.markdown(summary_html, unsafe_allow_html=True)
 
     if not vessels:
         return
