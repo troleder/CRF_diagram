@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "patient": {
+    "randomization_number": "3002-0008",
+    "site": "3002",
+    "patient_number": "0008",
+    "arm": "Experimental arm (FFR + OCT guided PCI)",
+    "sex": "Yes",
+    "indication": "Stable angina",
+    "lvef": "Normal (LVEF >-50%)",
+    "nyha": null,
+    "diabetes": false,
+    "smoking": "No",
+    "hypertension": true,
+    "previous_pci": false,
+    "date_angio": "27"
+  },
+  "vessels": [
+    {
+      "segment": "02 = RCA mid",
+      "culprit": true,
+      "stenosis_pct": 90,
+      "timi_pre": 3,
+      "physiology_done": null,
+      "pd_pa": null,
+      "rfr": null,
+      "ffr_adenosine": null,
+      "oct_pre": true,
+      "oct_system": "Yes",
+      "oct_pullback": "54 mm",
+      "pci_performed": true,
+      "bifurcation": false,
+      "calcification": "Moderate",
+      "predilatation": true,
+      "predil_balloon_mm": 2.5,
+      "predil_pressure_atm": 14,
+      "stent_placed": true,
+      "n_stents": 1,
+      "stents": [
+        {
+          "type": "XIENCE DES",
+          "diameter_mm": 4.0,
+          "length_mm": 38
+        }
+      ],
+      "postdil_balloon_mm": 2.5,
+      "postdil_pressure_atm": null,
+      "timi_post": 3,
+      "residual_stenosis": "< 30%",
+      "pci_successful": true,
+      "oct_post": true
+    },
+    {
+      "segment": "06 = LAD proximal",
+      "culprit": false,
+      "stenosis_pct": 60,
+      "timi_pre": 3,
+      "physiology_done": true,
+      "pd_pa": 0.81,
+      "rfr": 0.9,
+      "ffr_adenosine": 0.81,
+      "oct_pre": true,
+      "oct_system": "Yes",
+      "oct_pullback": "54 mm",
+      "pci_performed": null,
+      "bifurcation": null,
+      "calcification": null,
+      "predilatation": null,
+      "predil_balloon_mm": null,
+      "predil_pressure_atm": null,
+      "stent_placed": null,
+      "n_stents": null,
+      "stents": [],
+      "postdil_balloon_mm": null,
+      "postdil_pressure_atm": null,
+      "timi_post": null,
+      "residual_stenosis": null,
+      "pci_successful": null,
+      "oct_post": null
+    }
+  ]
+}
