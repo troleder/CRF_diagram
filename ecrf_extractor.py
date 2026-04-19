@@ -14,6 +14,7 @@ import sys
 import time
 import json
 import argparse
+import platform
 import re
 from dataclasses import dataclass, field, asdict
 from typing import Optional
@@ -23,6 +24,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from bs4 import BeautifulSoup
@@ -68,16 +70,41 @@ class PatientData:
 
 # ── Klasa główna ──────────────────────────────────────────────────────────────
 
+LINUX_CHROME_BINARIES = [
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    "/snap/bin/chromium",
+    "/usr/bin/google-chrome",
+]
+LINUX_CHROMEDRIVER_BINARIES = [
+    "/usr/bin/chromedriver",
+    "/usr/lib/chromium-browser/chromedriver",
+    "/usr/lib/chromium/chromedriver",
+]
+
+
 class ECRFExtractor:
     def __init__(self, headless: bool = False):
         opts = Options()
-        if headless:
-            opts.add_argument("--headless=new")
+        opts.add_argument("--headless=new")  # always headless in cloud/server
         opts.add_argument("--window-size=1440,900")
         opts.add_argument("--disable-blink-features=AutomationControlled")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
-        self.driver = webdriver.Chrome(options=opts)
+        opts.add_argument("--disable-gpu")
+
+        service = None
+        if platform.system() == "Linux":
+            for binary in LINUX_CHROME_BINARIES:
+                if os.path.exists(binary):
+                    opts.binary_location = binary
+                    break
+            for driver_path in LINUX_CHROMEDRIVER_BINARIES:
+                if os.path.exists(driver_path):
+                    service = Service(driver_path)
+                    break
+
+        self.driver = webdriver.Chrome(options=opts, **({"service": service} if service else {}))
         self.driver.implicitly_wait(3)
 
     def __enter__(self):
