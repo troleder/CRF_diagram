@@ -119,10 +119,14 @@ def render_patient(data):
             html += _cell("TIMI post",  timi_label(v.get("timi_post")))
             html += f'<span style="{CELL_STYLE}"><span style="{LABEL_STYLE}">FFR</span>{ffr_str}</span>'
             html += "<br>"
-            html += _cell("OCT pre",     "TAK" if v.get("oct_pre") else "NIE")
-            html += _cell("Bifurcation", _bool_val(v.get("bifurcation")))
+            oct_str = (
+                '<span style="color:#e67e22;font-size:18px;font-weight:600;">TAK</span>'
+                if v.get("oct_pre") else "NIE"
+            )
+            html += f'<span style="{CELL_STYLE}"><span style="{LABEL_STYLE}">OCT pre</span>{oct_str}</span>'
+            html += _cell("Bifurcation",  _bool_val(v.get("bifurcation")))
             html += _cell("Predilatacja", _bool_val(v.get("predilatation")))
-            html += _cell("Stent",       _bool_val(v.get("stent_placed")))
+            html += _cell("Stent",        _bool_val(v.get("stent_placed")))
             html += "<br>"
             html += f'<span style="{CELL_STYLE}"><span style="{LABEL_STYLE}">PCI</span>{pci_str}</span>'
             html += f'<span style="{CELL_STYLE}"><span style="{LABEL_STYLE}">Culprit</span>{culprit_str}</span>'
@@ -130,8 +134,12 @@ def render_patient(data):
                 html += _cell("PCI sukces", _bool_val(v.get("pci_successful"), true_color="#1a7f47", false_color="#c0392b"))
             if v.get("pd_pa") is not None or v.get("rfr") is not None:
                 html += "<br>"
-                html += _cell("Pd/Pa", str(v.get("pd_pa", "—")))
-                html += _cell("RFR",   str(v.get("rfr", "—")))
+                pd_pa_val = v.get("pd_pa")
+                rfr_val2  = v.get("rfr")
+                pd_pa_str = f'<span style="color:#e6a817;font-size:18px;font-weight:600;">{pd_pa_val}</span>' if pd_pa_val is not None else "—"
+                rfr_str2  = f'<span style="color:#e6a817;font-size:18px;font-weight:600;">{rfr_val2}</span>'  if rfr_val2  is not None else "—"
+                html += f'<span style="{CELL_STYLE}"><span style="{LABEL_STYLE}">Pd/Pa</span>{pd_pa_str}</span>'
+                html += f'<span style="{CELL_STYLE}"><span style="{LABEL_STYLE}">RFR</span>{rfr_str2}</span>'
             html += "</div>"
 
             st.markdown(html, unsafe_allow_html=True)
