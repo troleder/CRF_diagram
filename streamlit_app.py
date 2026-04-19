@@ -39,14 +39,41 @@ def timi_label(val):
     return ["0", "I", "II", "III"][val] if 0 <= val <= 3 else str(val)
 
 
+CELL_STYLE = (
+    "display:inline-block;font-size:18px;padding:4px 14px 4px 0;"
+    "min-width:140px;vertical-align:top;"
+)
+LABEL_STYLE = "font-size:12px;color:#999;display:block;margin-bottom:1px;"
+
+
+def _cell(label: str, value: str, color: str = "") -> str:
+    val_style = f"font-size:18px;font-weight:600;color:{color};" if color else "font-size:18px;font-weight:600;"
+    return (
+        f'<span style="{CELL_STYLE}">'
+        f'<span style="{LABEL_STYLE}">{label}</span>'
+        f'<span style="{val_style}">{value}</span>'
+        f'</span>'
+    )
+
+
+def _bool_val(val, true_color: str = "", false_color: str = "") -> str:
+    if val is True:
+        return f'<span style="color:{true_color};font-size:18px;font-weight:600;">TAK</span>' if true_color else "TAK"
+    if val is False:
+        return f'<span style="color:{false_color};font-size:18px;font-weight:600;">NIE</span>' if false_color else "NIE"
+    return "—"
+
+
 def render_patient(data):
     p = data.get("patient", {})
     vessels = data.get("vessels", [])
     rand = p.get("randomization_number", "?")
 
     arm = p.get("arm") or "—"
-    st.markdown(f"### Pacjent {rand}  <span style='font-size:.85rem;color:#888'>{arm}</span>",
-                unsafe_allow_html=True)
+    st.markdown(
+        f"### Pacjent {rand}  <span style='font-size:.85rem;color:#888'>{arm}</span>",
+        unsafe_allow_html=True,
+    )
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Ramię", arm)
@@ -55,38 +82,59 @@ def render_patient(data):
     c4.metric("NYHA", p.get("nyha") or "—")
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Cukrzyca",        "TAK" if p.get("diabetes") is True  else "NIE" if p.get("diabetes") is False else "—")
-    c2.metric("Nadciśnienie",    "TAK" if p.get("hypertension") is True else "NIE" if p.get("hypertension") is False else "—")
-    c3.metric("Poprzednie PCI",  "TAK" if p.get("previous_pci") is True else "NIE" if p.get("previous_pci") is False else "—")
+    c1.metric("Cukrzyca",       "TAK" if p.get("diabetes") is True  else "NIE" if p.get("diabetes") is False else "—")
+    c2.metric("Nadciśnienie",   "TAK" if p.get("hypertension") is True else "NIE" if p.get("hypertension") is False else "—")
+    c3.metric("Poprzednie PCI", "TAK" if p.get("previous_pci") is True else "NIE" if p.get("previous_pci") is False else "—")
 
     if not vessels:
         return
 
     st.markdown("**Naczynia**")
     for i, v in enumerate(vessels):
-        culprit_marker = "  ★ CULPRIT" if v.get("culprit") else ""
-        with st.expander(f"Naczynie {i+1}: {v.get('segment', '?')}{culprit_marker}", expanded=True):
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Stenoza",   f"{v['stenosis_pct']}%" if v.get("stenosis_pct") is not None else "—")
-            c2.metric("TIMI pre",  timi_label(v.get("timi_pre")))
-            c3.metric("TIMI post", timi_label(v.get("timi_post")))
-            c4.metric("FFR",       str(v["ffr_adenosine"]) if v.get("ffr_adenosine") is not None else "—")
+        is_culprit = v.get("culprit")
+        culprit_html = (
+            ' <span style="color:#c0392b;font-weight:700;">★ CULPRIT</span>'
+            if is_culprit else ""
+        )
+        header = f"Naczynie {i+1}: {v.get('segment', '?')}"
 
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("OCT pre",      "TAK" if v.get("oct_pre") else "NIE")
-            c2.metric("Bifurcation",  "TAK" if v.get("bifurcation") is True else "NIE" if v.get("bifurcation") is False else "—")
-            c3.metric("Predilatacja", "TAK" if v.get("predilatation") is True else "NIE" if v.get("predilatation") is False else "—")
-            c4.metric("Stent",        "TAK" if v.get("stent_placed") is True else "NIE" if v.get("stent_placed") is False else "—")
+        with st.expander(header, expanded=True):
+            ffr_val = v.get("ffr_adenosine")
+            ffr_str = (
+                f'<span style="color:#e6a817;font-size:18px;font-weight:600;">{ffr_val}</span>'
+                if ffr_val is not None
+                else "—"
+            )
+            pci_str = _bool_val(v.get("pci_performed"), true_color="#1a7f47")
+            culprit_str = (
+                '<span style="color:#c0392b;font-size:18px;font-weight:600;">TAK ★</span>'
+                if is_culprit else "NIE"
+            )
 
-            c1, c2 = st.columns(2)
-            c1.metric("PCI",       "TAK" if v.get("pci_performed") else "NIE")
+            html = '<div style="line-height:2.2;">'
+            html += culprit_html  # red CULPRIT badge at top
+            html += "<br>"
+            html += _cell("Stenoza",    f"{v['stenosis_pct']}%" if v.get("stenosis_pct") is not None else "—")
+            html += _cell("TIMI pre",   timi_label(v.get("timi_pre")))
+            html += _cell("TIMI post",  timi_label(v.get("timi_post")))
+            html += f'<span style="{CELL_STYLE}"><span style="{LABEL_STYLE}">FFR</span>{ffr_str}</span>'
+            html += "<br>"
+            html += _cell("OCT pre",     "TAK" if v.get("oct_pre") else "NIE")
+            html += _cell("Bifurcation", _bool_val(v.get("bifurcation")))
+            html += _cell("Predilatacja", _bool_val(v.get("predilatation")))
+            html += _cell("Stent",       _bool_val(v.get("stent_placed")))
+            html += "<br>"
+            html += f'<span style="{CELL_STYLE}"><span style="{LABEL_STYLE}">PCI</span>{pci_str}</span>'
+            html += f'<span style="{CELL_STYLE}"><span style="{LABEL_STYLE}">Culprit</span>{culprit_str}</span>'
             if v.get("pci_successful") is not None:
-                c2.metric("PCI sukces", "TAK" if v.get("pci_successful") else "NIE")
-
+                html += _cell("PCI sukces", _bool_val(v.get("pci_successful"), true_color="#1a7f47", false_color="#c0392b"))
             if v.get("pd_pa") is not None or v.get("rfr") is not None:
-                c1, c2 = st.columns(2)
-                c1.metric("Pd/Pa", str(v.get("pd_pa", "—")))
-                c2.metric("RFR",   str(v.get("rfr", "—")))
+                html += "<br>"
+                html += _cell("Pd/Pa", str(v.get("pd_pa", "—")))
+                html += _cell("RFR",   str(v.get("rfr", "—")))
+            html += "</div>"
+
+            st.markdown(html, unsafe_allow_html=True)
 
             if v.get("stents"):
                 parts = []
