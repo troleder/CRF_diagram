@@ -71,7 +71,7 @@ def render_patient(data):
 
     arm = p.get("arm") or "—"
     st.markdown(
-        f"### Pacjent {rand}  <span style='font-size:.85rem;color:#888'>{arm}</span>",
+        f"### Pacjent {rand}<br><span style='font-size:24px;font-weight:600;color:#1a1a2e'>{arm}</span>",
         unsafe_allow_html=True,
     )
 
