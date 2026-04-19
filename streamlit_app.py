@@ -75,22 +75,6 @@ def render_patient(data):
         unsafe_allow_html=True,
     )
 
-    def _bool_cell(val):
-        if val is True:  return "TAK"
-        if val is False: return "NIE"
-        return "—"
-
-    summary_html = '<div style="line-height:2.4;">'
-    summary_html += _cell("Ramię",         arm)
-    summary_html += _cell("Płeć",          p.get("sex") or "—")
-    summary_html += _cell("LVEF",          p.get("lvef") or "—")
-    summary_html += _cell("NYHA",          p.get("nyha") or "—")
-    summary_html += "<br>"
-    summary_html += _cell("Cukrzyca",      _bool_cell(p.get("diabetes")))
-    summary_html += _cell("Nadciśnienie",  _bool_cell(p.get("hypertension")))
-    summary_html += _cell("Poprzednie PCI", _bool_cell(p.get("previous_pci")))
-    summary_html += "</div>"
-    st.markdown(summary_html, unsafe_allow_html=True)
 
     if not vessels:
         return
