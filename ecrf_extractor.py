@@ -71,15 +71,15 @@ class PatientData:
 # ── Klasa główna ──────────────────────────────────────────────────────────────
 
 LINUX_CHROME_BINARIES = [
-    "/usr/bin/chromium-browser",
-    "/usr/bin/chromium",
+    "/usr/bin/chromium",          # Debian
+    "/usr/bin/chromium-browser",  # Ubuntu
     "/snap/bin/chromium",
     "/usr/bin/google-chrome",
 ]
 LINUX_CHROMEDRIVER_BINARIES = [
-    "/usr/bin/chromedriver",
-    "/usr/lib/chromium-browser/chromedriver",
-    "/usr/lib/chromium/chromedriver",
+    "/usr/bin/chromedriver",                  # Debian (chromium-driver)
+    "/usr/lib/chromium/chromedriver",         # Debian alt
+    "/usr/lib/chromium-browser/chromedriver", # Ubuntu
 ]
 
 
