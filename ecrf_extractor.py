@@ -58,6 +58,9 @@ class VesselData:
     stent_name: Optional[str] = None
     stent_diameter: Optional[str] = None
     stent_length: Optional[str] = None
+    access_site: Optional[str] = None
+    guiding_fr: Optional[int] = None
+    extension_catheter: Optional[bool] = None
 
 @dataclass
 class PatientData:
@@ -397,7 +400,8 @@ class ECRFExtractor:
         KW = ["vessel", "artery", "segment", "lesion", "culprit", "ffr", "oct",
               "timi", "stenosis", "stent", "pci", "flow", "lad", "lcx", "rca",
               "coronary", "angio", "ifa", "ira", "diameter", "calcif", "thrombus",
-              "occlusion", "balloon", "recanali", "infarct"]
+              "occlusion", "balloon", "recanali", "infarct",
+              "guiding", "access site", "french", "catheter", "extension catheter"]
         for k, v in fields.items():
             if any(kw in k.lower() or kw in v.lower() for kw in KW):
                 print(f"      ★ {k}: {v}")
@@ -417,14 +421,17 @@ class ECRFExtractor:
             "PDA": ["pda", "posterior descending"],
         }
         ANGIO_KW = {
-            "culprit":  ["culprit", "ifa", "ira", "infarct-related", "odpowiedzialn"],
-            "ffr":      ["ffr", "fractional flow", "pd/pa", "rfr"],
-            "oct":      ["oct", "optical coherence"],
-            "stenosis": ["stenosis", "stenoz", "zwężen"],
-            "timi_pre": ["timi pre", "timi flow pre", "baseline timi", "timi przed"],
-            "timi_post":["timi post", "timi flow post", "final timi", "timi po"],
-            "stent":    ["stent", "des", "bes", "bms"],
-            "pci":      ["pci", "angioplast", "ptca", "intervention"],
+            "culprit":   ["culprit", "ifa", "ira", "infarct-related", "odpowiedzialn"],
+            "ffr":       ["ffr", "fractional flow", "pd/pa", "rfr"],
+            "oct":       ["oct", "optical coherence"],
+            "stenosis":  ["stenosis", "stenoz", "zwężen"],
+            "timi_pre":  ["timi pre", "timi flow pre", "baseline timi", "timi przed"],
+            "timi_post": ["timi post", "timi flow post", "final timi", "timi po"],
+            "stent":     ["stent", "des", "bes", "bms"],
+            "pci":       ["pci", "angioplast", "ptca", "intervention"],
+            "access":    ["access site"],
+            "guiding":   ["guiding"],
+            "ext_cath":  ["extension catheter"],
         }
 
         def identify_vessel(text: str) -> Optional[str]:
@@ -496,6 +503,25 @@ class ECRFExtractor:
                 elif any(kw in fk for kw in ANGIO_KW["pci"]):
                     if fv not in ("no", "nie", "false", "0", ""):
                         vd.angioplasty_performed = True
+
+                # Access site (Femoralis / Radialis / Brachialis)
+                if any(kw in fk for kw in ANGIO_KW["access"]):
+                    if fval and not vd.access_site:
+                        vd.access_site = fval
+
+                # Guiding catheter size in French (5 FR / 6 FR / 7 FR / 8 FR)
+                if any(kw in fk for kw in ANGIO_KW["guiding"]):
+                    m = re.search(r"\b([5-8])\s*[Ff][Rr]\b", fval)
+                    if m and not vd.guiding_fr:
+                        vd.guiding_fr = int(m.group(1))
+
+                # Extension catheter used
+                if any(kw in fk for kw in ANGIO_KW["ext_cath"]):
+                    if vd.extension_catheter is None:
+                        if fv in ("yes", "tak", "true", "1", "+"):
+                            vd.extension_catheter = True
+                        elif fv in ("no", "nie", "false", "0", "-"):
+                            vd.extension_catheter = False
 
         real = {k: v for k, v in vessel_map.items() if k != "_unknown"}
         unk = vessel_map.get("_unknown")
@@ -580,6 +606,12 @@ def print_report(data: PatientData) -> None:
             else:
                 print(f"  FFR        : Nie wykonano")
             print(f"  OCT        : {'TAK' if v.oct_performed else 'Nie wykonano'}")
+            if v.access_site:
+                print(f"  Dostęp        : {v.access_site}")
+            if v.guiding_fr:
+                print(f"  Cewnik prowadz: {v.guiding_fr} FR")
+            if v.extension_catheter is not None:
+                print(f"  Ext. cewnik   : {'TAK' if v.extension_catheter else 'Nie'}")
             if v.angioplasty_performed:
                 stent_info = ""
                 if v.stent_implanted:
@@ -588,9 +620,9 @@ def print_report(data: PatientData) -> None:
                     if v.stent_diameter: parts.append(f"⌀{v.stent_diameter}")
                     if v.stent_length:   parts.append(f"dł. {v.stent_length}")
                     stent_info = f"  (stent: {', '.join(parts)})" if parts else "  (stent)"
-                print(f"  Angioplastyka: TAK{stent_info}")
+                print(f"  Angioplastyka : TAK{stent_info}")
             else:
-                print(f"  Angioplastyka: Nie")
+                print(f"  Angioplastyka : Nie")
         print()
 
 
@@ -760,6 +792,9 @@ def build_clean_json(data: PatientData) -> dict:
             "oct_system":           _fv(img, "OCT system", "Optis", "Opstar") or None,
             "oct_pullback":         _fv(img, "pullback", "54 mm", "75 mm") or None,
             "pci_performed":        _to_bool(_fv(inv, "PCI procedure performed")),
+            "access_site":          _fv(inv, "Access site") or None,
+            "guiding_fr":           int(re.search(r"\b([5-8])\s*[Ff][Rr]\b", _fv(inv, "Guiding")).group(1)) if re.search(r"\b([5-8])\s*[Ff][Rr]\b", _fv(inv, "Guiding")) else None,
+            "extension_catheter":   _to_bool(_fv(inv, "Extension catheter")),
             "bifurcation":          _to_bool(_fv(inv, "Bifurcation")),
             "calcification":        _fv(inv, "Calcification") or None,
             "predilatation":        _to_bool(_fv(inv, "Balloon predilatation")),

@@ -161,6 +161,11 @@ def extract_vessels(sections: dict) -> list:
 
         # Intervention fields
         pci_done     = to_bool(fv(inv, "PCI procedure performed"))
+        access_site  = fv(inv, "Access site") or None
+        _guiding_raw = fv(inv, "Guiding")
+        _guiding_m   = re.search(r"\b([5-8])\s*[Ff][Rr]\b", _guiding_raw) if _guiding_raw else None
+        guiding_fr   = int(_guiding_m.group(1)) if _guiding_m else None
+        ext_cath     = to_bool(fv(inv, "Extension catheter"))
         bifurc       = to_bool(fv(inv, "Bifurcation"))
         calcif       = fv(inv, "Calcification") or None
         predilatation= to_bool(fv(inv, "Balloon predilatation"))
@@ -209,6 +214,9 @@ def extract_vessels(sections: dict) -> list:
             "oct_pullback_mm":   oct_pullback,
             # intervention
             "pci_performed":     pci_done,
+            "access_site":       access_site,
+            "guiding_fr":        guiding_fr,
+            "extension_catheter": ext_cath,
             "bifurcation":       bifurc,
             "calcification":     calcif,
             "predilatation":     predilatation,
