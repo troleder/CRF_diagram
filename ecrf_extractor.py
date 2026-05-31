@@ -89,7 +89,7 @@ LINUX_CHROMEDRIVER_BINARIES = [
 class ECRFExtractor:
     def __init__(self, headless: bool = False):
         opts = Options()
-        opts.add_argument("--headless=new")
+        opts.add_argument("--headless")           # old headless — stable in containers
         opts.add_argument("--window-size=1440,900")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
@@ -99,8 +99,11 @@ class ECRFExtractor:
         opts.add_argument("--disable-software-rasterizer")
         opts.add_argument("--disable-background-networking")
         opts.add_argument("--disable-default-apps")
-        opts.add_argument("--mute-audio")
+        opts.add_argument("--disable-accelerated-2d-canvas")
         opts.add_argument("--no-first-run")
+        opts.add_argument("--mute-audio")
+        import tempfile, os as _os
+        opts.add_argument(f"--user-data-dir={_os.path.join(tempfile.gettempdir(), 'chrome-ecrf')}")
 
         service = None
         if platform.system() == "Linux":
