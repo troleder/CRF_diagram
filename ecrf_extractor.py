@@ -89,12 +89,18 @@ LINUX_CHROMEDRIVER_BINARIES = [
 class ECRFExtractor:
     def __init__(self, headless: bool = False):
         opts = Options()
-        opts.add_argument("--headless=new")  # always headless in cloud/server
+        opts.add_argument("--headless=new")
         opts.add_argument("--window-size=1440,900")
         opts.add_argument("--disable-blink-features=AutomationControlled")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
         opts.add_argument("--disable-gpu")
+        opts.add_argument("--disable-setuid-sandbox")
+        opts.add_argument("--no-zygote")
+        opts.add_argument("--single-process")
+        opts.add_argument("--disable-extensions")
+        opts.add_argument("--disable-software-rasterizer")
+        opts.add_argument("--remote-debugging-port=0")
 
         service = None
         if platform.system() == "Linux":
