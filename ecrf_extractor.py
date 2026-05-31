@@ -530,6 +530,46 @@ class ECRFExtractor:
             vessels.append(unk)
         return vessels
 
+    # ── Lista pacjentów dla danego site ──────────────────────────────────────
+
+    def list_site_patients(self, site: str) -> list:
+        """
+        Zwraca listę numerów randomizacji wszystkich pacjentów dla danego site.
+        Obsługuje paginację gridu DevExpress.
+        """
+        print(f"\n[*] Pobieranie listy pacjentów dla site={site}...")
+        self.driver.get(f"{BASE}/BrowseSubjects.aspx?site={site}")
+        WebDriverWait(self.driver, 45).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "tr[id*='DXDataRow']"))
+        )
+        self._wait_dx()
+
+        patients = []
+        page = 0
+        while True:
+            page += 1
+            soup = BeautifulSoup(self.driver.page_source, "lxml")
+            for row in soup.find_all("tr", id=re.compile(r"DXDataRow")):
+                text = row.get_text(" ", strip=True)
+                matches = re.findall(r'\b\d{4}-\d{4}\b', text)
+                patients.extend(matches)
+            print(f"    Strona {page}: {len(patients)} pacjentów łącznie")
+
+            # Szukaj przycisku "następna strona"
+            try:
+                nxt = self.driver.find_element(
+                    By.CSS_SELECTOR,
+                    "a[title='Next Page'],a[title='Następna strona'],img[alt='Next']"
+                )
+                nxt.click()
+                self._wait_dx()
+            except Exception:
+                break   # brak paginacji lub ostatnia strona
+
+        result = list(dict.fromkeys(patients))   # usuń duplikaty, zachowaj kolejność
+        print(f"    Znaleziono {len(result)} unikalnych pacjentów")
+        return result
+
     # ── Główny punkt wejścia ──────────────────────────────────────────────────
 
     def extract(self, username: str, password: str,
@@ -788,9 +828,20 @@ def build_clean_json(data: PatientData) -> dict:
             "pd_pa":                _to_float(_fv(img, "Pd/Pa")),
             "rfr":                  _to_float(_fv(img, "RFR")),
             "ffr_adenosine":        _to_float(_fv(img, "FFR adenosine")),
-            "oct_pre":              _to_bool(_fv(img, "OCT performed")),
-            "oct_system":           _fv(img, "OCT system", "Optis", "Opstar") or None,
-            "oct_pullback":         _fv(img, "pullback", "54 mm", "75 mm") or None,
+            # ── OCT pre-PCI (pola 6–6.12) ──────────────────────────────────
+            "oct_pre":                  _to_bool(_fv(img, "OCT performed")),
+            "oct_lesion_prep":          _to_bool(_fv(img, "Lesion preparation prior to OCT")),
+            "oct_catheter":             _fv(img, "Catheter", "Optis", "Opstar") or None,
+            "oct_pullback":             _fv(img, "Pullback length", "54 mm", "75 mm") or None,
+            "oct_tcfa":                 _to_bool(_fv(img, "TCFA")),
+            "oct_plaque_rupture":       _to_bool(_fv(img, "Plaque rupture")),
+            "oct_plaque_erosion":       _to_bool(_fv(img, "Plaque erosion")),
+            "oct_pct_lumen_stenosis":   _to_int(_fv(img, "Percent lumen area stenosis")),
+            "oct_mla_mm2":              _to_float(_fv(img, "Minimal lumen area")),
+            "oct_lesion_length_mm":     _to_float(_fv(img, "Lesion length")),
+            "oct_proximal_diam_mm":     _to_float(_fv(img, "Lesion proximal mean diameter")),
+            "oct_distal_diam_mm":       _to_float(_fv(img, "Lesion distal mean diameter")),
+            # ── Hemodynamika ─────────────────────────────────────────────────
             "pci_performed":        _to_bool(_fv(inv, "PCI procedure performed")),
             "access_site":          _fv(inv, "Access site") or None,
             "guiding_fr":           int(re.search(r"\b([5-8])\s*[Ff][Rr]\b", _fv(inv, "Guiding")).group(1)) if re.search(r"\b([5-8])\s*[Ff][Rr]\b", _fv(inv, "Guiding")) else None,
