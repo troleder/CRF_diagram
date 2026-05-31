@@ -155,14 +155,23 @@ class ECRFExtractor:
         u.clear(); u.send_keys(username)
         p.clear(); p.send_keys(password)
         self.driver.find_element(By.ID, LOGIN_BTN_ID).click()
-        self._wait_dx(30)
-        print(f"    URL: {self.driver.current_url}")
 
-        if "Default.aspx" in self.driver.current_url:
-            print("    Ustawiam kontekst studium...")
-            self.driver.get(f"{BASE}/Study.aspx?ID={STUDY}")
-            self._wait_dx(25)
-            print(f"    URL: {self.driver.current_url}")
+        # Czekaj aż URL zmieni się z Authenticate.aspx (max 30s)
+        try:
+            WebDriverWait(self.driver, 30).until(
+                lambda d: "Authenticate.aspx" not in d.current_url
+            )
+        except Exception:
+            body = self.driver.find_element(By.TAG_NAME, "body").text[:300]
+            raise RuntimeError(
+                f"Logowanie nie powiodło się. Sprawdź login i hasło.\n{body}"
+            )
+
+        print(f"    URL po logowaniu: {self.driver.current_url}")
+        print("    Ustawiam kontekst studium...")
+        self.driver.get(f"{BASE}/Study.aspx?ID={STUDY}")
+        self._wait_dx(25)
+        print(f"    URL po study: {self.driver.current_url}")
 
     # ── Wyszukiwanie pacjenta ─────────────────────────────────────────────────
 
@@ -539,44 +548,108 @@ class ECRFExtractor:
             vessels.append(unk)
         return vessels
 
-    # ── Lista pacjentów dla danego site ──────────────────────────────────────
+    # ── Lista pacjentów (site lub wszyscy) ───────────────────────────────────
+
+    def list_all_patients(self) -> list:
+        """
+        Zwraca listę numerów randomizacji WSZYSTKICH pacjentów we wszystkich sites.
+        """
+        return self._list_patients_from_grid(site=None)
 
     def list_site_patients(self, site: str) -> list:
         """
         Zwraca listę numerów randomizacji wszystkich pacjentów dla danego site.
         Obsługuje paginację gridu DevExpress.
         """
-        print(f"\n[*] Pobieranie listy pacjentów dla site={site}...")
-        self.driver.get(f"{BASE}/BrowseSubjects.aspx?site={site}")
-        WebDriverWait(self.driver, 45).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "tr[id*='DXDataRow']"))
-        )
+        return self._list_patients_from_grid(site=site)
+
+    def _list_patients_from_grid(self, site) -> list:
+        """
+        Wewnętrzna metoda — pobiera listę pacjentów z gridu BrowseSubjects.
+        site=None → wszyscy pacjenci; site='XXXX' → filtr po site.
+        """
+        if site:
+            print(f"\n[*] Pobieranie listy pacjentów dla site={site}...")
+            self.driver.get(f"{BASE}/BrowseSubjects.aspx?site={site}")
+        else:
+            print(f"\n[*] Pobieranie listy WSZYSTKICH pacjentów...")
+            self.driver.get(f"{BASE}/BrowseSubjects.aspx")
+
+        # Poczekaj na załadowanie gridu lub komunikatu braku wyników
+        try:
+            WebDriverWait(self.driver, 45).until(
+                lambda d: d.find_elements(By.CSS_SELECTOR, "tr[id*='DXDataRow']")
+                or d.find_elements(By.CSS_SELECTOR, "td.dxgv")
+                or d.find_elements(By.CSS_SELECTOR, ".dxgvEmptyDataRow")
+            )
+        except Exception:
+            print("    [!] Timeout oczekiwania na grid — brak danych?")
+            return []
         self._wait_dx()
+
+        # Wzorzec pasujący do numerów randomizacji
+        if site:
+            site_pattern = re.compile(rf'\b{re.escape(site)}-\d{{4}}\b')
+        else:
+            site_pattern = re.compile(r'\b\d{4}-\d{4}\b')
 
         patients = []
         page = 0
-        while True:
+        MAX_PAGES = 500   # zabezpieczenie na wypadek pętli nieskończonej
+
+        while page < MAX_PAGES:
             page += 1
             soup = BeautifulSoup(self.driver.page_source, "lxml")
             for row in soup.find_all("tr", id=re.compile(r"DXDataRow")):
                 text = row.get_text(" ", strip=True)
-                matches = re.findall(r'\b\d{4}-\d{4}\b', text)
+                matches = site_pattern.findall(text)
                 patients.extend(matches)
-            print(f"    Strona {page}: {len(patients)} pacjentów łącznie")
 
-            # Szukaj przycisku "następna strona"
+            # Usuń duplikaty na bieżąco
+            patients = list(dict.fromkeys(patients))
+            count = len(patients)
+            print(f"    Strona {page}: {count} pacjentów łącznie")
+
+            # Sprawdź przycisk "Następna strona" — czy istnieje i nie jest wyłączony
+            nxt_btns = self.driver.find_elements(
+                By.CSS_SELECTOR,
+                "a[title='Next Page'], a[title='Następna strona'], "
+                "img[alt='Next'], td[title='Next Page']"
+            )
+            if not nxt_btns:
+                print("    [*] Brak przycisku 'Next Page' — koniec paginacji.")
+                break
+
+            nxt = nxt_btns[0]
+            nxt_class = (nxt.get_attribute("class") or "").lower()
+            # DevExpress używa klas: dxp-disabledButton, disabled, dxp-bi (brak następnej)
+            if any(d in nxt_class for d in ("disabled", "dxp-bi", "dxp-disabledbutton")):
+                print("    [*] Przycisk 'Next Page' wyłączony — ostatnia strona.")
+                break
+
+            # Sprawdź też element nadrzędny (td/span) — często to on ma klasę disabled
             try:
-                nxt = self.driver.find_element(
-                    By.CSS_SELECTOR,
-                    "a[title='Next Page'],a[title='Następna strona'],img[alt='Next']"
-                )
+                parent_class = (nxt.find_element(By.XPATH, "..").get_attribute("class") or "").lower()
+                if any(d in parent_class for d in ("disabled", "dxp-bi", "dxp-disabledbutton")):
+                    print("    [*] Kontener 'Next Page' wyłączony — ostatnia strona.")
+                    break
+            except Exception:
+                pass
+
+            # Kliknij "Następna strona"
+            try:
                 nxt.click()
                 self._wait_dx()
-            except Exception:
-                break   # brak paginacji lub ostatnia strona
+            except Exception as e:
+                print(f"    [*] Nie można kliknąć 'Next Page': {e}")
+                break
 
-        result = list(dict.fromkeys(patients))   # usuń duplikaty, zachowaj kolejność
-        print(f"    Znaleziono {len(result)} unikalnych pacjentów")
+        if page >= MAX_PAGES:
+            print(f"    [!] Osiągnięto limit {MAX_PAGES} stron — przerywam.")
+
+        result = list(dict.fromkeys(patients))
+        label = f"site {site}" if site else "wszystkich sites"
+        print(f"    Znaleziono {len(result)} unikalnych pacjentów ({label})")
         return result
 
     # ── Główny punkt wejścia ──────────────────────────────────────────────────
