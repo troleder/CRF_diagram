@@ -383,7 +383,7 @@ with tab2:
 
             while thread.is_alive():
                 log = st.session_state.bulk_log
-                log_box.text_area("Log", "\n".join(log[-30:]), height=300)
+                log_box.code("\n".join(log[-30:]), language=None)
                 done = sum(1 for l in log if l.startswith("✅") and "Znaleziono" not in l)
                 total_found = next((int(re.search(r"\d+", l).group()) for l in log if "Znaleziono" in l), 0)
                 if total_found > 0:
@@ -391,7 +391,7 @@ with tab2:
                 time.sleep(1)
             thread.join()
 
-            log_box.text_area("Log", "\n".join(st.session_state.bulk_log), height=300)
+            log_box.code("\n".join(st.session_state.bulk_log), language=None)
             if bulk_result["error"]:
                 st.error(f"Błąd: {bulk_result['error']}")
             else:
